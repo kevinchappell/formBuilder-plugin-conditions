@@ -240,6 +240,37 @@ describe('condition builder', () => {
     expect(data[0].showWhen).toBeUndefined()
   })
 
+  test('saves a number source comparison as a string and reads it back', async () => {
+    const { builder, container } = await mount({ formData: [
+      { type: 'number', name: 'age', label: 'Age', conditionId: 'c_age' },
+      { type: 'text', name: 'guardian', label: 'Guardian', conditionId: 'c_guardian' },
+    ] })
+    const panel = open(builder, field(container, 'guardian'))
+    const toggle = panel.querySelector('.condition-enabled')
+    toggle.checked = true
+    toggle.dispatchEvent(new Event('change', { bubbles: true }))
+    const source = panel.querySelector('.fld-showWhen-sourceId')
+    source.value = 'c_age'
+    source.dispatchEvent(new Event('change', { bubbles: true }))
+    panel.querySelector('.fld-showWhen-operator').value = 'lessThan'
+    const value = panel.querySelector('.fld-showWhen-value')
+    // A `number` input would be exported as a JSON number by core's getAttrVals.
+    expect(value.type).toBe('text')
+    expect(value.inputMode).toBe('decimal')
+    value.value = '18'
+
+    const saved = builder.save()
+    expect(saved.ok).toBe(true)
+    const rule = saved.formData.find(item => item.name === 'guardian').showWhen
+    expect(rule).toEqual({ sourceId: 'c_age', operator: 'lessThan', value: '18' })
+    expect(typeof rule.value).toBe('string')
+
+    builder.actions.setData(saved.formData)
+    const reopened = open(builder, field(container, 'guardian'))
+    expect(reopened.querySelector('.fld-showWhen-value').value).toBe('18')
+    expect(builder.validate()).toEqual([])
+  })
+
   test('reports a dangling source inline and keeps the imported rule in exported data', async () => {
     const rule = { sourceId: 'c_gone', operator: 'equals', value: 'PT' }
     const { builder, container } = await mount({ formData: [

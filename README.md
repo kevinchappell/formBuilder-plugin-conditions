@@ -87,7 +87,8 @@ and `disabledActionButtons` all keep working and each caller callback still runs
 In the field edit panel the plugin adds a **Conditional display** switch. Turning it on reveals a
 source selector (existing supported fields, by label), an operator list limited to that source's type,
 and a value control suited to the source — a `<select>` of the source's own options for choice and
-multi-choice sources, a date or number input for those types, a text input otherwise. A single
+multi-choice sources, a date input for a date source, a text input otherwise (a number source gets a
+text input with `inputmode="decimal"`, so its value is saved as a string). A single
 checkbox source shows no value control. Self-references and choices that would create a loop are left
 out of the source list. Existing rules are read back when form data is loaded or a panel is reopened;
 turning the switch off removes `showWhen` from the exported data.
@@ -226,8 +227,11 @@ with a rule also gets a `showWhen`:
 }
 ```
 
-Operators that need a comparison also store a string `value`. This metadata lives in form data, not in
-HTML attributes, and the render adapter removes it before formRender sees the fields.
+Operators that need a comparison also store a `value`, and that value is **always a string** — a number
+comparison is saved as `"18"`, never as `18`. That is why the number value control is a text input:
+core exports a `number` input as a JSON number. The plugin converts the string per source type when it
+validates and evaluates. This metadata lives in form data, not in HTML attributes, and the render
+adapter removes it before formRender sees the fields.
 
 ### Sources and operators
 
@@ -237,7 +241,7 @@ HTML attributes, and the render adapter removes it before formRender sees the fi
 | `checkbox-group`, multi `select` | `contains`, `notContains` | the source's options |
 | `select` (single), `radio-group` | `equals`, `notEquals` | the source's options |
 | `text`, `textarea` | `equals`, `notEquals` | text input |
-| `number` | `greaterThan`, `lessThan` | number input |
+| `number` | `greaterThan`, `lessThan` | text input, `inputmode="decimal"` |
 | `date` | `greaterThan`, `lessThan` | date input |
 
 Any other field type cannot be a source and is not offered in the source list. `autocomplete` is
