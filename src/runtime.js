@@ -19,6 +19,14 @@ const clone = value => {
 }
 const controlsFor = (container, name) => [...container.querySelectorAll('input,select,textarea')]
   .filter(control => control.name === name || control.name === `${name}[]`)
+const standardWrapperFor = (container, field) => {
+  // formRender applies `field-${id}` to standard wrappers. Display-only
+  // controls have no input to locate, so resolve them by that class.
+  const identities = [field.name, field.id].filter(value => !isBlank(value))
+  if (!identities.length) return null
+  return [...container.querySelectorAll('.rendered-form .form-group')]
+    .find(element => identities.some(identity => element.classList.contains(`field-${identity}`))) ?? null
+}
 const answerFor = (field, controls) => {
   const kind = sourceKind(field)
   if (kind === 'checkbox') return controls.some(control => control.checked)
@@ -136,7 +144,7 @@ export function render(container, { formData, resolveFieldElement, onWarning, ..
       state.items = inputFields.map(field => {
         const controls = controlsFor(container, field.name)
         const resolved = resolveFieldElement?.(field, container)
-        const wrapper = resolved ?? controls[0]?.closest('.form-group') ?? null
+        const wrapper = resolved ?? controls[0]?.closest('.form-group') ?? standardWrapperFor(container, field)
         const item = {
           field,
           rule: hasRule(field),

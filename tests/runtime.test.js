@@ -78,6 +78,26 @@ describe('conditional render', () => {
     expect(group(container, 'last').hidden).toBe(true)
   })
 
+  test('toggles a display-only header using its standard field wrapper', () => {
+    const container = make()
+    render(container, { formData: [
+      source,
+      { type: 'header', subtype: 'h3', id: 'heading-id', name: 'conditional-heading', label: 'Extra details', conditionId: 'heading', showWhen: { sourceId: 'agree', operator: 'checked' } },
+    ] })
+    const heading = container.querySelector('.field-conditional-heading')
+    expect(heading).toBeTruthy()
+    expect(heading.querySelector('h3')).toBeTruthy()
+    expect(heading.hidden).toBe(true)
+    input(container, 'agree').checked = true
+    change(input(container, 'agree'))
+    expect(heading.hidden).toBe(false)
+    input(container, 'agree').checked = false
+    change(input(container, 'agree'))
+    expect(heading.hidden).toBe(true)
+    destroy(container)
+    expect(heading.hidden).toBe(false)
+  })
+
   test('preserves authored disabled controls and handles two containers independently', () => {
     const one = make()
     const two = make()
