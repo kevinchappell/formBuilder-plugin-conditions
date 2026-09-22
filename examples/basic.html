@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>formbuilder-plugin-conditions — basic example</title>
+<style>
+  body { margin: 0; padding: 24px; font: 14px/1.5 system-ui, sans-serif; background: #f7f7f8; color: #1d1d1f; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.lede { margin: 0 0 24px; color: #55555c; max-width: 60em; }
+  .panes { display: grid; gap: 24px; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); align-items: start; }
+  section { background: #fff; border: 1px solid #e2e2e6; border-radius: 8px; padding: 16px; }
+  h2 { font-size: 15px; margin: 0 0 12px; text-transform: uppercase; letter-spacing: .04em; color: #55555c; }
+  pre { background: #1d1d1f; color: #f2f2f4; padding: 12px; border-radius: 6px; overflow: auto; max-height: 320px; font-size: 12px; }
+  .hint { color: #55555c; font-size: 13px; margin: 0 0 12px; }
+  #output:empty::before { content: 'Press Save in the builder to render the form here.'; color: #8a8a90; }
+</style>
+</head>
+<body>
+<h1>Conditional visibility — builder to rendered form</h1>
+<p class="lede">
+  The builder starts with two saved rules: <em>Nickname</em> is shown when the <em>I have a nickname</em>
+  checkbox is checked, and <em>Visa number</em> is shown when <em>Travel date</em> is after 2026-01-01.
+  Open a field's edit panel to see the “Conditional display” switch. Press <strong>Save</strong> (the
+  plugin's button, which validates first) to render the saved schema below and watch the rules run.
+</p>
+
+<div class="panes">
+  <section>
+    <h2>Builder</h2>
+    <div id="builder"></div>
+  </section>
+  <section>
+    <h2>Rendered form</h2>
+    <p class="hint">Toggle the checkbox or change the date — hidden answers are kept but stay out of <code>userData</code>.</p>
+    <div id="output"></div>
+  </section>
+  <section>
+    <h2>Saved form data</h2>
+    <pre id="saved">Press Save to see the saved JSON.</pre>
+  </section>
+  <section>
+    <h2>formRender userData</h2>
+    <pre id="user-data">Press Save to see userData.</pre>
+  </section>
+</div>
+
+<!--
+  Script order matters: jQuery, jQuery UI sortable (formBuilder's drag and drop needs it
+  and the dist bundle does not include it), formBuilder, formRender, then this plugin.
+  formBuilder 3.23.1 injects its own CSS, so no stylesheet link is needed.
+
+  jsDelivr is used rather than unpkg because unpkg lowercases package names and cannot
+  serve the capitalised `formBuilder` package.
+
+  To run against a local core build instead of the CDN, run `npm run build` in the
+  adjacent formBuilder checkout and swap the two formBuilder tags below for:
+    <script src="../../formBuilder/dist/form-builder.min.js"></script>
+    <script src="../../formBuilder/dist/form-render.min.js"></script>
+-->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"
+        integrity="sha384-1H217gwSVyLSIfaLxHbE7dRb3v4mYCKbpQvzx0cegeju1MVsGrX5xXxAvs/HgeFs"
+        crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery-ui-sortable@1.0.0/jquery-ui.min.js"
+        integrity="sha384-ZGcjWyWjTTV/OKTEn4AK0xFymLnKExxsHf0pIr/HhiM8PirpiBt1leATfuqASwVQ"
+        crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/formBuilder@3.23.1/dist/form-builder.min.js"
+        integrity="sha384-ZsPSUJMkIqGOxB9IlG5QykrIEWn7J89IgjfzMWNU8sMYCWGUGlIpg8/XYusXGjkz"
+        crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/formBuilder@3.23.1/dist/form-render.min.js"
+        integrity="sha384-yDez4k/Ki1FGcqE0kcWgAwLBXnJHXNOGJ7GbL6oaswlHJON/GVaDZ3+Rm/EZSS6N"
+        crossorigin="anonymous"></script>
+<!-- Built by `npm run build` in the plugin package; exposes the global FormBuilderConditions. -->
+<script src="../dist/formbuilder-plugin-conditions.umd.js"></script>
+
+<script>
+  const { createBuilder, render } = window.FormBuilderConditions
+
+  // The saved schema from the design doc: every field carries a stable `conditionId`,
+  // and a target carries a single `showWhen` rule pointing at its source.
+  const savedFields = [
+    {
+      type: 'checkbox',
+      name: 'has_nickname',
+      label: 'I have a nickname',
+      conditionId: 'c_2a1b6c90',
+      values: [{ label: 'Yes', value: 'yes' }],
+    },
+    {
+      type: 'text',
+      subtype: 'text',
+      name: 'nickname',
+      label: 'Nickname',
+      required: true,
+      conditionId: 'c_7d3e5f10',
+      showWhen: { sourceId: 'c_2a1b6c90', operator: 'checked' },
+    },
+    {
+      type: 'date',
+      subtype: 'date',
+      name: 'travel_date',
+      label: 'Travel date',
+      conditionId: 'c_4f8c1b22',
+    },
+    {
+      type: 'text',
+      subtype: 'text',
+      name: 'visa_number',
+      label: 'Visa number',
+      conditionId: 'c_9b6d0e41',
+      showWhen: { sourceId: 'c_4f8c1b22', operator: 'greaterThan', value: '2026-01-01' },
+    },
+  ]
+
+  const output = document.querySelector('#output')
+  const savedPane = document.querySelector('#saved')
+  const userDataPane = document.querySelector('#user-data')
+  const showUserData = () => {
+    userDataPane.textContent = JSON.stringify(jQuery(output).formRender('userData'), null, 2)
+  }
+
+  jQuery(async () => {
+    await createBuilder(document.querySelector('#builder'), {
+      formData: savedFields,
+      // The plugin disables the built-in Save (its callback runs after core has saved)
+      // and appends its own `.conditions-save` button, which validates the rules first.
+      // This callback runs only on a valid save, as onSave(evt, formData).
+      onSave(evt, formData) {
+        savedPane.textContent = JSON.stringify(formData, null, 2)
+        render(output, {
+          formData,
+          onWarning: issue => console.warn('[conditions]', issue),
+        })
+        showUserData()
+      },
+    })
+
+    // Rules run on delegated input/change listeners the adapter installed on #output.
+    // Refresh the dump on the next tick so it reads the DOM after the adapter has
+    // applied the rules for that same event.
+    const refreshUserData = () => setTimeout(showUserData, 0)
+    output.addEventListener('input', refreshUserData)
+    output.addEventListener('change', refreshUserData)
+  })
+</script>
+</body>
+</html>
