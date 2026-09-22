@@ -1,6 +1,6 @@
 import $ from 'jquery'
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import '../../formBuilder/src/js/form-builder.js'
+import 'formBuilder/src/js/form-builder.js'
 import { createBuilder } from '../src/builder.js'
 import * as plugin from '../src/index.js'
 

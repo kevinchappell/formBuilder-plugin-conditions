@@ -2,8 +2,8 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import $ from 'jquery'
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import '../../formBuilder/src/js/form-builder.js'
-import '../../formBuilder/src/js/form-render.js'
+import 'formBuilder/src/js/form-builder.js'
+import 'formBuilder/src/js/form-render.js'
 import { createBuilder, destroy, render, validate } from '../src/index.js'
 
 /**

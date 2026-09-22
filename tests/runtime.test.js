@@ -1,6 +1,6 @@
 import $ from 'jquery'
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import '../../formBuilder/src/js/form-render.js'
+import 'formBuilder/src/js/form-render.js'
 import { render, destroy } from '../src/runtime.js'
 
 const make = () => {

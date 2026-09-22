@@ -1,7 +1,7 @@
 import $ from 'jquery'
 import { afterEach, describe, expect, test } from 'vitest'
-import '../../formBuilder/src/js/form-builder.js'
-import '../../formBuilder/src/js/form-render.js'
+import 'formBuilder/src/js/form-builder.js'
+import 'formBuilder/src/js/form-render.js'
 
 const createBuilder = async options => {
   const container = document.createElement('div')
