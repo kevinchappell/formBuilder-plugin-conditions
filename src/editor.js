@@ -42,13 +42,37 @@ function selectStored(control, value, label) {
   control.value = value
 }
 
+/** One edit-panel row laid out like core's own attribute rows: label column, then `.input-wrap`. */
 function row(labelText, control) {
   const wrapper = document.createElement('div')
   wrapper.className = 'form-group'
   const label = document.createElement('label')
   label.textContent = labelText
-  wrapper.append(label, control)
+  const inputWrap = document.createElement('div')
+  inputWrap.className = 'input-wrap'
+  if (control.type !== 'checkbox') control.classList.add('form-control')
+  inputWrap.append(control)
+  wrapper.append(label, inputWrap)
   return wrapper
+}
+
+const STYLE_ID = 'formbuilder-plugin-conditions-styles'
+// Core injects its own stylesheet, so the plugin does the same for the few rules its
+// editor needs beyond core's `.form-elements` layout. Scoped to the builder panel only.
+const STYLES = `
+.form-builder .form-elements .condition-editor { margin-top: 8px; padding-top: 8px; border-top: 1px solid #ddd; }
+.form-builder .form-elements .condition-editor .form-group + .form-group { margin-top: 6px; }
+.form-builder .form-elements .condition-error { margin: 6px 0 0 18.66666667%; color: #b3261e; font-size: 13px; }
+.form-builder .form-elements .condition-error[hidden] { display: none; }
+.form-builder .form-elements .condition-issue { margin: 0 0 4px; }
+@media (max-width: 480px) { .form-builder .form-elements .condition-error { margin-left: 0; } }
+`
+function ensureStyles() {
+  if (typeof document === 'undefined' || document.getElementById(STYLE_ID)) return
+  const style = document.createElement('style')
+  style.id = STYLE_ID
+  style.textContent = STYLES
+  document.head.append(style)
 }
 
 function wouldCycle(candidateId, targetId, byId) {
@@ -69,8 +93,9 @@ function ensureErrorElement(node) {
   if (!host) return null
   let editor = node.querySelector('.condition-editor')
   if (!editor) {
+    ensureStyles()
     editor = document.createElement('div')
-    editor.className = 'condition-editor form-group'
+    editor.className = 'condition-editor'
     host.append(editor)
   }
   const error = document.createElement('div')
@@ -144,22 +169,21 @@ export function openConditionEditor(panel, getFields) {
   const raw = panel.querySelector('.condition-raw-rule')
   if (!raw) panel.querySelector('.showWhen-wrap')?.remove()
 
+  ensureStyles()
   const editor = document.createElement('div')
-  editor.className = 'condition-editor form-group'
-  const switchLabel = document.createElement('label')
-  switchLabel.textContent = 'Conditional display'
+  editor.className = 'condition-editor'
   const enabled = document.createElement('input')
   enabled.type = 'checkbox'
   enabled.className = 'condition-enabled'
   enabled.checked = Boolean(saved.sourceId || saved.operator || saved.value)
-  switchLabel.prepend(enabled)
+  const switchRow = row('Conditional display', enabled)
   const detail = document.createElement('div')
   detail.className = 'condition-details'
   const error = document.createElement('div')
   error.className = 'condition-error'
   error.setAttribute('role', 'alert')
   error.hidden = true
-  editor.append(switchLabel, detail, error)
+  editor.append(switchRow, detail, error)
   panel.querySelector('.form-elements-inner')?.append(editor)
 
   const render = (sourceId = '', operator = '', value = '') => {
