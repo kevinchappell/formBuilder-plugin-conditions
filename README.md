@@ -81,16 +81,16 @@ and `disabledActionButtons` all keep working and each caller callback still runs
 | `save(evt?)` | Validates, and on success calls core save. Returns `{ ok: false, issues }` or `{ ok: true, formData }`. |
 | `validate()` | Validates the current builder state, repaints inline errors, returns the issues array (`[]` when valid). |
 | `destroy()` | Empties the builder container and drops the plugin's references. Safe to call twice. |
-| `actions` | The core formBuilder `actions` object, unpatched (`getData`, `setData`, `addField`, …). |
+| `actions` | The core formBuilder `actions` object, unpatched (`getData`, `setData`, `addField`, …). `actions.save()` still runs core's own `onSave`, which is the default no-op: your callback is captured by the plugin and never handed to core. |
 | `instance` | The raw core formBuilder instance. |
 
 In the field edit panel the plugin adds a **Conditional display** switch. Turning it on reveals a
 source selector (existing supported fields, by label), an operator list limited to that source's type,
 and a value control suited to the source — a `<select>` of the source's own options for choice and
 multi-choice sources, a date input for a date source, a text input otherwise (a number source gets a
-text input with `inputmode="decimal"`, so its value is saved as a string). A single
-checkbox source shows no value control. Self-references and choices that would create a loop are left
-out of the source list. Existing rules are read back when form data is loaded or a panel is reopened;
+text input with `inputmode="decimal"`, so its value is saved as a string). A single checkbox source
+shows no value control. Self-references and choices that would create a loop are left out of the
+source list. Existing rules are read back when form data is loaded or a panel is reopened;
 turning the switch off removes `showWhen` from the exported data.
 
 Renaming a source does not break a rule: references use the stable `conditionId`, not the field name.
@@ -105,10 +105,11 @@ plugin cannot block a save with invalid rules there. `createBuilder` therefore a
 `disabledActionButtons` and appends its own action button (`button.conditions-save`, after any
 `actionButtons` you passed). Your `onSave` is captured by the plugin and is never handed to core.
 
-The plugin calls it as **`onSave(evt, formData)`** — the same argument shape core's Save button
-documents — exactly once per successful save. `evt` is the button's click event; for a programmatic
-`controller.save()` it is `undefined`. `formData` is the saved array with all-empty `showWhen`
-objects stripped.
+The plugin calls it as **`onSave(evt, formData)`** exactly once per successful save. `evt` is the
+button's click event; for a programmatic `controller.save()` it is `undefined`. `formData` is the
+**parsed array** of fields, with all-empty `showWhen` objects stripped — not the JSON string that core's
+own Save button passes as its second argument, so a caller moving from core's button to the plugin's
+does not need to `JSON.parse` it.
 
 ```js
 const result = conditions.save()
@@ -162,7 +163,8 @@ formRender, then resolves each field in that container, applies the rules, and l
 `input` and `change` events. It returns the formRender instance and never mutates the array you passed.
 
 - Changing a source re-evaluates its dependants, including chained ones downstream.
-- A hidden source counts as having no answer, even though its disabled control still holds one.
+- A hidden source hides every field that depends on it, whatever the operator — `unchecked`,
+  `notEquals` and `notContains` included, even though a blank answer would otherwise satisfy them.
 - Invalid or cyclic rules **fail closed**: the affected target stays hidden and a warning is reported.
 - Calling `render` again on the same container replaces the previous listeners and state.
 - `destroy(container)` removes the listeners and restores the wrappers and controls the plugin changed.
@@ -180,9 +182,9 @@ throwing away an answer the user may see again.
 because core skips disabled controls. It is not removed from the result:
 
 ```js
-$(output).formRender('userData')
-// [ { name: 'agree', userData: [] }, { name: 'nickname', userData: [] } ]  // while hidden
-// [ { name: 'agree', userData: ['yes'] }, { name: 'nickname', userData: ['Kev'] } ]  // once shown
+$(output).formRender('userData')   // rows abridged: every field is listed, not only these two
+// [ { name: 'agree', userData: [] }, { name: 'nickname', userData: [] } ]  // while hidden (abridged)
+// [ { name: 'agree', userData: ['yes'] }, { name: 'nickname', userData: ['Kev'] } ]  // once shown (abridged)
 ```
 
 ### Warnings
@@ -252,6 +254,12 @@ could not be evaluated reliably.
 Choice rules store the option's **value**, not its label. Dates compare the input's ISO `YYYY-MM-DD`
 value and numbers compare numerically; an empty or unparsable source answer never satisfies an ordered
 comparison.
+
+A blank answer is still an answer to the other operators: `notEquals` and `notContains` are **true**
+while the source is empty, and `unchecked` is true while a checkbox is clear. Only the ordered
+comparisons (`greaterThan`, `lessThan`) and `checked` need a real answer. A source that is itself
+hidden overrides all of this — see [Rendering](#rendering): its dependants are hidden whatever the
+operator says.
 
 ### Which fields can be targets
 
