@@ -20,6 +20,24 @@ const isBlank = value => value === '' || value === null || typeof value === 'und
 
 const fieldId = field => field?.conditionId ?? field?.name ?? null
 
+// formRender only wraps a field in `.form-group.field-<id>` when it carries a name
+// or id, and it renders `hidden` inputs with no wrapper at all. A rule on one of
+// those has no element to toggle, so such a field cannot be a conditional target.
+const DISPLAY_ONLY_TYPES = new Set(['header', 'paragraph'])
+const UNWRAPPED_TYPES = new Set(['hidden'])
+
+/**
+ * Whether a rule may target this field, i.e. whether the renderer can resolve an
+ * element to show or hide for it. Shared with the editor so the authoring gate and
+ * the runtime resolver cannot drift.
+ */
+export function canBeTarget(field) {
+  if (!field || typeof field !== 'object' || isBlank(field.type)) return false
+  if (UNWRAPPED_TYPES.has(field.type)) return false
+  if (DISPLAY_ONLY_TYPES.has(field.type)) return !isBlank(field.name) || !isBlank(field.id)
+  return true
+}
+
 export function sourceKind(field) {
   if (!field || typeof field !== 'object') return null
 

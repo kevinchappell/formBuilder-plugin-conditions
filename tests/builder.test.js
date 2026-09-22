@@ -14,6 +14,10 @@ function field(container, name) {
   return [...container.querySelectorAll('li.form-field')].find(node => node.querySelector('.fld-name')?.value === name)
 }
 
+function nodeOfType(container, type) {
+  return [...container.querySelectorAll('li.form-field')].find(node => node.getAttribute('type') === type)
+}
+
 function open(builder, node) {
   if (!node.classList.contains('editing')) builder.actions.toggleFieldEdit(node.id)
   return node.querySelector('.frm-holder')
@@ -159,5 +163,66 @@ describe('condition builder', () => {
     const afterReload = open(builder, field(container, 'city'))
     expect(afterReload.querySelector('.condition-enabled').checked).toBe(false)
     expect(builder.actions.getData('js')[1].showWhen).toBeUndefined()
+  })
+
+  test('omits the rule editor for field types that cannot be targets', async () => {
+    const { builder, container } = await mount({ formData: [
+      { type: 'text', name: 'city', label: 'City' },
+      { type: 'header', subtype: 'h2', label: 'Section' },
+      { type: 'paragraph', subtype: 'p', label: 'Intro' },
+    ] })
+    for (const type of ['header', 'paragraph']) {
+      const panel = open(builder, nodeOfType(container, type))
+      expect(panel.querySelector('.condition-editor')).toBeNull()
+      expect(panel.querySelector('.condition-enabled')).toBeNull()
+    }
+    expect(open(builder, field(container, 'city')).querySelector('.condition-enabled')).toBeTruthy()
+  })
+
+  test('reports a dangling source inline and keeps the imported rule in exported data', async () => {
+    const rule = { sourceId: 'c_gone', operator: 'equals', value: 'PT' }
+    const { builder, container } = await mount({ formData: [
+      { type: 'text', name: 'city', label: 'City', conditionId: 'c_city', showWhen: { ...rule } },
+    ] })
+    const node = field(container, 'city')
+    expect(node.querySelector('.condition-error [data-code="missing-source"]')).toBeTruthy()
+    const panel = open(builder, node)
+    expect(panel.querySelector('.condition-error [data-code="missing-source"]')).toBeTruthy()
+    expect(panel.querySelector('.fld-showWhen-sourceId').value).toBe('c_gone')
+    expect(builder.actions.getData('js')[0].showWhen).toEqual(rule)
+  })
+
+  test('reports a malformed imported rule inline without dropping it', async () => {
+    const { builder, container } = await mount({ formData: [
+      { type: 'text', name: 'city', label: 'City', conditionId: 'c_city', showWhen: 'nonsense' },
+    ] })
+    const node = field(container, 'city')
+    expect(node.querySelector('.condition-error [data-code="malformed-rule"]')).toBeTruthy()
+    expect(builder.actions.getData('js')[0].showWhen).toBe('nonsense')
+    const panel = open(builder, node)
+    expect(panel.querySelector('.condition-error [data-code="malformed-rule"]')).toBeTruthy()
+    const toggle = panel.querySelector('.condition-enabled')
+    expect(toggle.checked).toBe(false)
+    expect(builder.actions.getData('js')[0].showWhen).toBe('nonsense')
+    toggle.checked = true
+    toggle.dispatchEvent(new Event('change', { bubbles: true }))
+    expect(panel.querySelector('.condition-raw-rule')).toBeNull()
+    expect(typeof builder.actions.getData('js')[0].showWhen).toBe('object')
+  })
+
+  test('assigns crypto based IDs that stay unique across builder instances', async () => {
+    const first = await mount({ formData: [{ type: 'text', name: 'a' }, { type: 'text', name: 'b' }] })
+    const second = await mount({ formData: [{ type: 'text', name: 'c' }, { type: 'text', name: 'd' }] })
+    const ids = [...first.builder.actions.getData('js'), ...second.builder.actions.getData('js')]
+      .map(item => item.conditionId)
+    expect(ids).toHaveLength(4)
+    for (const id of ids) expect(id).toMatch(/^c_[0-9a-f-]+$/)
+    expect(new Set(ids).size).toBe(4)
+  })
+
+  test('leaves core data actions unpatched', async () => {
+    const { builder } = await mount()
+    expect(builder.actions.setData).toBe(builder.setData)
+    expect(builder.actions.getData).toBe(builder.getData)
   })
 })
