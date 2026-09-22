@@ -14,6 +14,7 @@ const ISSUE_MESSAGES = {
   'operator-type-mismatch': 'The operator does not match the type of the source field.',
   'unsupported-operator': 'The operator is not supported for the type of the source field.',
   'stale-choice-value': 'The option this rule compares against no longer exists on the source field.',
+  'unsupported-target': 'This field cannot be shown or hidden by a rule, because the rendered form has no element for it.',
 }
 
 const messageFor = issue => ISSUE_MESSAGES[issue?.code] ?? `Conditional display rule error: ${issue?.code ?? 'unknown'}`

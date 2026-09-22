@@ -180,6 +180,24 @@ describe('condition builder', () => {
     expect(open(builder, field(container, 'city')).querySelector('.condition-enabled')).toBeTruthy()
   })
 
+  test('offers the rule editor on a hidden field, which the renderer governs by its control', async () => {
+    const { builder, container } = await mount({ formData: [
+      { type: 'checkbox', name: 'consent', label: 'Consent', conditionId: 'c_consent' },
+      { type: 'hidden', name: 'token', value: 'abc', conditionId: 'c_token' },
+    ] })
+    const panel = open(builder, nodeOfType(container, 'hidden'))
+    const toggle = panel.querySelector('.condition-enabled')
+    expect(toggle).toBeTruthy()
+    toggle.checked = true
+    toggle.dispatchEvent(new Event('change', { bubbles: true }))
+    const source = panel.querySelector('.fld-showWhen-sourceId')
+    source.value = 'c_consent'
+    source.dispatchEvent(new Event('change', { bubbles: true }))
+    panel.querySelector('.fld-showWhen-operator').value = 'checked'
+    expect(builder.actions.getData('js')[1].showWhen).toEqual({ sourceId: 'c_consent', operator: 'checked' })
+    expect(builder.validate()).toEqual([])
+  })
+
   test('keeps the typed editor and hidden ID across a subtype change', async () => {
     const { builder, container } = await mount({ formData: [
       { type: 'text', name: 'country', label: 'Country', conditionId: 'c_country' },

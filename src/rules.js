@@ -16,25 +16,25 @@ const VALUE_OPERATORS = new Set([
   'lessThan',
 ])
 
-const isBlank = value => value === '' || value === null || typeof value === 'undefined'
+export const isBlank = value => value === '' || value === null || typeof value === 'undefined'
 
-const fieldId = field => field?.conditionId ?? field?.name ?? null
+/** The identity a rule and its issues are reported under. */
+export const fieldId = field => field?.conditionId ?? field?.name ?? null
 
-// formRender only wraps a field in `.form-group.field-<id>` when it carries a name
-// or id, and it renders `hidden` inputs with no wrapper at all. A rule on one of
-// those has no element to toggle, so such a field cannot be a conditional target.
+// formRender builds the `.form-group.field-<name>` wrapper class from the field's
+// name, and a display-only field has no control to fall back on: a nameless one
+// renders bare, so a rule on it has nothing to toggle. Every other type is
+// governed either by its wrapper or, like `hidden`, by its named control.
 const DISPLAY_ONLY_TYPES = new Set(['header', 'paragraph'])
-const UNWRAPPED_TYPES = new Set(['hidden'])
 
 /**
  * Whether a rule may target this field, i.e. whether the renderer can resolve an
- * element to show or hide for it. Shared with the editor so the authoring gate and
- * the runtime resolver cannot drift.
+ * element to show or hide for it. Shared with the editor and `validate` so the
+ * authoring gate, the save-time check and the runtime resolver cannot drift.
  */
 export function canBeTarget(field) {
   if (!field || typeof field !== 'object' || isBlank(field.type)) return false
-  if (UNWRAPPED_TYPES.has(field.type)) return false
-  if (DISPLAY_ONLY_TYPES.has(field.type)) return !isBlank(field.name) || !isBlank(field.id)
+  if (DISPLAY_ONLY_TYPES.has(field.type)) return !isBlank(field.name)
   return true
 }
 
@@ -112,7 +112,8 @@ export function evaluate(rule, sourceField, answer) {
   }
 }
 
-function ruleState(showWhen) {
+/** Whether a `showWhen` is absent, unusable, or a complete rule. */
+export function ruleState(showWhen) {
   if (!showWhen || typeof showWhen !== 'object' || Array.isArray(showWhen)) {
     return showWhen == null ? 'inactive' : 'malformed'
   }
@@ -158,6 +159,10 @@ export function validate(fields) {
     if (state === 'inactive') continue
     if (state === 'malformed') {
       addError(id, 'malformed-rule')
+      continue
+    }
+    if (!canBeTarget(target)) {
+      addError(id, 'unsupported-target')
       continue
     }
 

@@ -148,6 +148,32 @@ describe('conditional render', () => {
     expect(token.disabled).toBe(false)
   })
 
+  test('reports an unsupported target and keeps it closed when a resolver finds it', () => {
+    const container = make()
+    const onWarning = vi.fn()
+    const heading = { type: 'header', subtype: 'h3', label: 'Extra details', conditionId: 'heading', showWhen: { sourceId: 'agree', operator: 'checked' } }
+    render(container, { formData: [source, heading], onWarning })
+    // A nameless header renders without a wrapper, so no element carries the rule.
+    expect(container.querySelector('h3').closest('.form-group')).toBeNull()
+    expect(onWarning).toHaveBeenCalledWith({ fieldId: 'heading', code: 'unsupported-target' })
+    expect(onWarning).toHaveBeenCalledWith({ fieldId: 'heading', code: 'missing-rendered-field' })
+
+    // Even when a custom resolver hands the plugin an element, the reported rule
+    // fails closed rather than being applied.
+    render(container, {
+      formData: [source, heading],
+      onWarning,
+      resolveFieldElement: (field, root) => field.conditionId === 'heading' ? root.querySelector('h3').parentElement : undefined,
+    })
+    const wrapper = container.querySelector('h3').parentElement
+    expect(wrapper.hidden).toBe(true)
+    input(container, 'agree').checked = true
+    change(input(container, 'agree'))
+    expect(wrapper.hidden).toBe(true)
+    destroy(container)
+    expect(wrapper.hidden).toBe(false)
+  })
+
   test('reports a hidden target through core userData without patching the instance', () => {
     const container = make()
     const instance = render(container, { formData: [source, target] })
