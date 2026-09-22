@@ -199,7 +199,10 @@ export function openConditionEditor(panel, getFields) {
         }
         selectStored(valueControl, value, entry => `${entry} (option removed)`)
       } else {
-        valueControl = input('value', 'input', kind === 'number' ? 'number' : kind === 'date' ? 'date' : 'text')
+        // A `number` input would be exported as a JSON number by core's getAttrVals;
+        // the saved rule value is always a string, so a text input carries it.
+        valueControl = input('value', 'input', kind === 'date' ? 'date' : 'text')
+        if (kind === 'number') valueControl.inputMode = 'decimal'
         valueControl.value = value
       }
       detail.append(row('Value', valueControl))
