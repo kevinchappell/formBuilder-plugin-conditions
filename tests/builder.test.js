@@ -216,10 +216,33 @@ describe('condition builder', () => {
     expect(panel.querySelector('.fld-showWhen-sourceId').value).toBe('c_country')
     expect(panel.querySelector('.fld-showWhen-value').value).toBe('PT')
     expect(node.querySelector('.conditionId-wrap').hidden).toBe(true)
+    // Core's panel CSS forces `display: flex` on `.form-group`, so `hidden` alone is not enough.
+    expect(node.querySelector('.conditionId-wrap').style.display).toBe('none')
     expect(node.querySelector('.fld-conditionId').readOnly).toBe(true)
     const data = builder.actions.getData('js')
     expect(data[1].subtype).toBe('password')
     expect(data[1].showWhen).toEqual({ sourceId: 'c_country', operator: 'equals', value: 'PT' })
+  })
+
+  test('lays the rule editor out like core attribute rows and injects its styles once', async () => {
+    const { builder, container } = await mount({ formData: [
+      { type: 'checkbox', name: 'agree', label: 'Agree', conditionId: 'c_agree' },
+      { type: 'text', name: 'why', label: 'Why', conditionId: 'c_why', showWhen: { sourceId: 'c_agree', operator: 'checked' } },
+    ] })
+    const panel = open(builder, field(container, 'why'))
+    const editor = panel.querySelector('.condition-editor')
+    expect(editor.classList.contains('form-group')).toBe(false)
+    const rows = [...editor.querySelectorAll('.form-group')]
+    expect(rows.map(row => row.querySelector('label').textContent)).toEqual(['Conditional display', 'Source field', 'Operator'])
+    for (const row of rows) {
+      expect(row.children[0].tagName).toBe('LABEL')
+      expect(row.children[1].classList.contains('input-wrap')).toBe(true)
+      expect(row.children[1].children).toHaveLength(1)
+    }
+    expect(panel.querySelector('.fld-showWhen-sourceId').classList.contains('form-control')).toBe(true)
+    expect(document.querySelectorAll('#formbuilder-plugin-conditions-styles')).toHaveLength(1)
+    open(builder, field(container, 'agree'))
+    expect(document.querySelectorAll('#formbuilder-plugin-conditions-styles')).toHaveLength(1)
   })
 
   test('a subtype change on a field that cannot be a target leaves no raw rule inputs', async () => {

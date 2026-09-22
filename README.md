@@ -52,7 +52,11 @@ install resolves for you).
 </script>
 ```
 
-formBuilder 3.23.1 injects its own stylesheet, so no extra CSS link is needed. jsDelivr is used
+formBuilder 3.23.1 injects its own stylesheet, so no extra CSS link is needed. The plugin does the
+same for its edit-panel controls: the first time a rule editor opens it appends one small
+`<style id="formbuilder-plugin-conditions-styles">` to `<head>`, scoped to `.form-builder .form-elements`.
+The rows themselves reuse core's own `label` + `.input-wrap` layout, so they follow any theme
+applied to core's attribute rows. jsDelivr is used
 rather than unpkg because unpkg lowercases package names and cannot serve the capitalised
 `formBuilder` package; `examples/basic.html` pins the same URLs with Subresource Integrity hashes.
 

@@ -20,7 +20,12 @@ const attr = (field, name) => field.querySelector(`.fld-${name}`)?.value
 // the edit panel, while still being exported by core like any other attribute.
 const hideConditionId = node => {
   const wrapper = node?.querySelector('.conditionId-wrap')
-  if (wrapper) wrapper.hidden = true
+  if (wrapper) {
+    wrapper.hidden = true
+    // Core's panel CSS sets `display: flex` on every `.form-group`, which beats the
+    // `hidden` attribute, so an inline rule is needed to actually hide the row.
+    wrapper.style.display = 'none'
+  }
   const control = node?.querySelector('.fld-conditionId')
   if (control) control.readOnly = true
 }
