@@ -234,14 +234,19 @@ HTML attributes, and the render adapter removes it before formRender sees the fi
 | --- | --- | --- |
 | `checkbox` (single) | `checked`, `unchecked` | none |
 | `checkbox-group`, multi `select` | `contains`, `notContains` | the source's options |
-| `select` (single), `radio-group`, `autocomplete` | `equals`, `notEquals` | the source's options |
+| `select` (single), `radio-group` | `equals`, `notEquals` | the source's options |
 | `text`, `textarea` | `equals`, `notEquals` | text input |
 | `number` | `greaterThan`, `lessThan` | number input |
 | `date` | `greaterThan`, `lessThan` | date input |
 
-Any other field type cannot be a source and is not offered in the source list. Choice rules store the
-option's **value**, not its label. Dates compare the input's ISO `YYYY-MM-DD` value and numbers compare
-numerically; an empty or unparsable source answer never satisfies an ordered comparison.
+Any other field type cannot be a source and is not offered in the source list. `autocomplete` is
+deliberately not one: formRender gives it an unnamed display input in front of the named hidden input
+that holds the value, and choosing a suggestion fires neither `input` nor `change`, so a rule on it
+could not be evaluated reliably.
+
+Choice rules store the option's **value**, not its label. Dates compare the input's ISO `YYYY-MM-DD`
+value and numbers compare numerically; an empty or unparsable source answer never satisfies an ordered
+comparison.
 
 ### Which fields can be targets
 

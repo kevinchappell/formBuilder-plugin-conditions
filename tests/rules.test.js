@@ -11,7 +11,6 @@ describe('sourceKind', () => {
     [field('a', 'select', { multiple: true }), 'multi'],
     [field('a', 'select'), 'choice'],
     [field('a', 'radio-group'), 'choice'],
-    [field('a', 'autocomplete'), 'choice'],
     [field('a', 'number'), 'number'],
     [field('a', 'date'), 'date'],
     [field('a', 'text'), 'text'],
@@ -19,6 +18,13 @@ describe('sourceKind', () => {
     [field('a', 'header'), null],
   ])('classifies %j as %s', (source, expected) => {
     expect(sourceKind(source)).toBe(expected)
+  })
+
+  it('does not classify autocomplete, whose rendered value the runtime cannot read', () => {
+    // formRender renders an unnamed display input before the named hidden input,
+    // and picking a suggestion fires neither `input` nor `change`.
+    expect(sourceKind(field('a', 'autocomplete'))).toBe(null)
+    expect(operatorsFor(field('a', 'autocomplete'))).toEqual([])
   })
 })
 

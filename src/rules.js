@@ -49,7 +49,6 @@ export function sourceKind(field) {
     case 'select':
       return field.multiple ? 'multi' : 'choice'
     case 'radio-group':
-    case 'autocomplete':
       return 'choice'
     case 'number':
       return 'number'
