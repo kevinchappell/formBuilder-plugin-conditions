@@ -2,6 +2,7 @@ import $ from 'jquery'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import '../../formBuilder/src/js/form-builder.js'
 import { createBuilder } from '../src/builder.js'
+import * as plugin from '../src/index.js'
 
 async function mount(options = {}) {
   const container = document.createElement('div')
@@ -222,7 +223,109 @@ describe('condition builder', () => {
 
   test('leaves core data actions unpatched', async () => {
     const { builder } = await mount()
-    expect(builder.actions.setData).toBe(builder.setData)
-    expect(builder.actions.getData).toBe(builder.getData)
+    expect(builder.actions.setData).toBe(builder.instance.setData)
+    expect(builder.actions.getData).toBe(builder.instance.getData)
+  })
+})
+
+describe('explicit save', () => {
+  const enable = panel => {
+    const toggle = panel.querySelector('.condition-enabled')
+    toggle.checked = true
+    toggle.dispatchEvent(new Event('change', { bubbles: true }))
+    return panel
+  }
+
+  test('blocks save on an invalid rule and saves once after repair', async () => {
+    const onSave = vi.fn()
+    const { builder, container } = await mount({ onSave, formData: [
+      { type: 'text', name: 'country', label: 'Country', conditionId: 'c_country' },
+      { type: 'text', name: 'city', label: 'City', conditionId: 'c_city', showWhen: { sourceId: 'c_gone', operator: 'equals', value: 'PT' } },
+    ] })
+    const saveButton = container.querySelector('.conditions-save')
+    expect(saveButton).toBeTruthy()
+
+    saveButton.click()
+    const node = field(container, 'city')
+    expect([...node.querySelectorAll('.condition-issue')].map(issue => issue.dataset.code)).toEqual(['missing-source'])
+    expect(onSave).not.toHaveBeenCalled()
+    expect(builder.save()).toMatchObject({ ok: false })
+    expect(builder.save().issues).toHaveLength(1)
+    expect(onSave).not.toHaveBeenCalled()
+
+    const panel = open(builder, node)
+    const source = panel.querySelector('.fld-showWhen-sourceId')
+    source.value = 'c_country'
+    source.dispatchEvent(new Event('change', { bubbles: true }))
+    panel.querySelector('.fld-showWhen-operator').value = 'equals'
+    panel.querySelector('.fld-showWhen-value').value = 'PT'
+
+    saveButton.click()
+    expect(onSave).toHaveBeenCalledTimes(1)
+    const [, formData] = onSave.mock.calls[0]
+    expect(formData.find(item => item.name === 'city').showWhen).toEqual({ sourceId: 'c_country', operator: 'equals', value: 'PT' })
+    expect(field(container, 'city').querySelectorAll('.condition-issue')).toHaveLength(0)
+    expect(builder.validate()).toEqual([])
+  })
+
+  test('save returns the cleaned form data and reports issues without saving', async () => {
+    const onSave = vi.fn()
+    const { builder } = await mount({ onSave, formData: [
+      { type: 'text', name: 'city', label: 'City', conditionId: 'c_city', showWhen: { sourceId: 'c_city', operator: 'equals', value: 'PT' } },
+    ] })
+    const blocked = builder.save()
+    expect(blocked.ok).toBe(false)
+    expect(blocked.issues.map(issue => issue.code)).toEqual(['self-reference'])
+    expect(blocked.formData).toBeUndefined()
+    expect(onSave).not.toHaveBeenCalled()
+  })
+
+  test('strips an all-empty rule from saved data and from validation', async () => {
+    const onSave = vi.fn()
+    const { builder, container } = await mount({ onSave, formData: [
+      { type: 'text', name: 'city', label: 'City', conditionId: 'c_city' },
+    ] })
+    enable(open(builder, field(container, 'city')))
+    const showWhen = builder.actions.getData('js')[0].showWhen
+    expect(showWhen).toBeTruthy()
+    expect(Object.values(showWhen).every(value => value === '')).toBe(true)
+    expect(builder.validate()).toEqual([])
+    const result = builder.save()
+    expect(result.ok).toBe(true)
+    expect(result.formData[0].showWhen).toBeUndefined()
+    expect(onSave).toHaveBeenCalledTimes(1)
+    expect(onSave.mock.calls[0][1][0].showWhen).toBeUndefined()
+  })
+
+  test('replaces the built-in save action and keeps caller action buttons', async () => {
+    const click = vi.fn()
+    const { container } = await mount({
+      actionButtons: [{ type: 'button', id: 'custom', label: 'Custom', className: 'btn custom-action', events: { click } }],
+      disabledActionButtons: ['clear'],
+    })
+    expect(container.querySelector('.save-template')).toBeNull()
+    expect(container.querySelector('.clear-all')).toBeNull()
+    const custom = container.querySelector('.custom-action')
+    expect(custom).toBeTruthy()
+    custom.click()
+    expect(click).toHaveBeenCalledTimes(1)
+    const buttons = [...container.querySelectorAll('.form-actions button')]
+    expect(buttons.at(-1).classList.contains('conditions-save')).toBe(true)
+    expect(buttons.at(-2)).toBe(custom)
+  })
+
+  test('destroy empties the container and is safe to repeat', async () => {
+    const { builder, container } = await mount({ formData: [{ type: 'text', name: 'city' }] })
+    builder.destroy()
+    expect(container.children).toHaveLength(0)
+    expect(builder.actions).toBeNull()
+    expect(builder.instance).toBeNull()
+    expect(builder.save()).toEqual({ ok: false, issues: [] })
+    expect(() => builder.destroy()).not.toThrow()
+  })
+
+  test('exposes exactly the documented package entry points', () => {
+    expect(Object.keys(plugin).sort()).toEqual(['createBuilder', 'destroy', 'render', 'validate'])
+    for (const name of Object.keys(plugin)) expect(typeof plugin[name]).toBe('function')
   })
 })

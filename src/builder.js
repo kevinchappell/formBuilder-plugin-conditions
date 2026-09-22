@@ -6,6 +6,14 @@ const activeRule = rule => rule && typeof rule === 'object' && !Array.isArray(ru
 // A `showWhen` that is neither absent nor a plain object cannot be edited, but it is
 // kept in the exported data and reported instead of being dropped.
 const rawRule = rule => rule != null && rule !== '' && (typeof rule !== 'object' || Array.isArray(rule))
+// A rule object whose every entry is blank is not a rule: the author enabled the
+// switch without choosing anything. It validates as absent and is dropped on save.
+const emptyRule = rule => rule != null && typeof rule === 'object' && !Array.isArray(rule) && !activeRule(rule)
+const withoutEmptyRule = field => {
+  if (!field || !emptyRule(field.showWhen)) return field
+  const { showWhen, ...rest } = field
+  return rest
+}
 const fieldNodes = container => [...container.querySelectorAll('li.form-field')]
 const attr = (field, name) => field.querySelector(`.fld-${name}`)?.value
 
@@ -17,20 +25,36 @@ const randomId = () => {
   return `c_${[...bytes].map(byte => byte.toString(16).padStart(2, '0')).join('')}`
 }
 
+/**
+ * Initialize formBuilder with the conditional display plugin composed into the
+ * caller's options.
+ *
+ * @param  {Element} container the builder container
+ * @param  {Object}  options   formBuilder options; `onSave` is captured by the
+ *                             plugin instead of being passed to core, so it only
+ *                             runs once the rules validate
+ * @return {Promise<Object>} controller with `save`, `validate`, `destroy`, the
+ *                           core `actions`, and the raw core `instance`
+ */
 export async function createBuilder(container, options = {}) {
+  const {
+    onSave: callerOnSave,
+    actionButtons: callerActionButtons = [],
+    disabledActionButtons: callerDisabledActionButtons = [],
+    ...coreOptions
+  } = options
   const seen = new Set()
-  let controller
+  let core
   const uniqueId = () => {
     let id
     do { id = randomId() } while (seen.has(id))
     seen.add(id)
     return id
   }
-  const showIssues = () => {
-    const fields = controller?.actions.getData('js')
-    if (!fields) return
+  const currentFields = () => core?.actions.getData('js') ?? []
+  const renderIssues = issues => {
     const byField = new Map()
-    for (const issue of validate(fields)) {
+    for (const issue of issues) {
       if (!byField.has(issue.fieldId)) byField.set(issue.fieldId, [])
       byField.get(issue.fieldId).push(issue)
     }
@@ -38,6 +62,34 @@ export async function createBuilder(container, options = {}) {
       renderConditionIssues(node, byField.get(attr(node, 'conditionId')) ?? [])
     }
   }
+  /** Validate the current fields and repaint every field's inline issue list. */
+  const showIssues = () => {
+    if (!core) return []
+    const issues = validate(currentFields())
+    renderIssues(issues)
+    return issues
+  }
+  // `evt` is the action button's click event, so the captured callback sees the
+  // same `(evt, formData)` shape core's built-in Save button passes, with the
+  // plugin's cleaned data as `formData`. A programmatic `save()` passes no event.
+  const save = evt => {
+    if (!core) return { ok: false, issues: [] }
+    const issues = showIssues()
+    if (issues.length) return { ok: false, issues }
+    const formData = core.actions.save().map(withoutEmptyRule)
+    callerOnSave?.(evt, formData)
+    return { ok: true, formData }
+  }
+  // Core exposes no teardown, so the plugin drops the builder markup it created
+  // and releases its references to the core instance. Repeat calls are a no-op.
+  const destroy = () => {
+    if (!core) return
+    core = null
+    controller.actions = null
+    controller.instance = null
+    $(container).empty()
+  }
+  const controller = { save, validate: showIssues, destroy, actions: null, instance: null }
   const callerEvents = options.typeUserEvents || {}
   const typeUserEvents = {}
   const types = new Set(['*', 'text', 'textarea', 'number', 'date', 'select', 'radio-group', 'checkbox-group', 'checkbox', 'autocomplete', ...Object.keys(callerEvents)])
@@ -61,8 +113,22 @@ export async function createBuilder(container, options = {}) {
   const onOpenFieldEdit = options.onOpenFieldEdit
   const onRemoveField = options.onRemoveField
   const warning = typeof options.notify?.warning === 'function' ? options.notify.warning : message => console.warn(message)
-  const instance = $(container).formBuilder({
-    ...options,
+  const disabledActionButtons = callerDisabledActionButtons.includes('save')
+    ? [...callerDisabledActionButtons]
+    : [...callerDisabledActionButtons, 'save']
+  // The built-in Save fires its callback after core has already saved, so it is
+  // disabled and replaced by an action that validates first.
+  const actionButtons = [...callerActionButtons, {
+    type: 'button',
+    id: 'conditions-save',
+    label: 'save',
+    className: 'btn btn-primary conditions-save',
+    events: { click: evt => save(evt) },
+  }]
+  const pending = $(container).formBuilder({
+    ...coreOptions,
+    actionButtons,
+    disabledActionButtons,
     typeUserAttrs: mergedAttrs,
     typeUserEvents,
     onAddField(id, field) {
@@ -79,7 +145,7 @@ export async function createBuilder(container, options = {}) {
       onAddFieldAfter?.(id, field)
     },
     onOpenFieldEdit(panel) {
-      openConditionEditor(panel, () => controller?.actions.getData('js') ?? [])
+      openConditionEditor(panel, currentFields)
       showIssues()
       onOpenFieldEdit?.(panel)
     },
@@ -101,7 +167,9 @@ export async function createBuilder(container, options = {}) {
       onRemoveField?.(id, data, field)
     },
   })
-  controller = await instance.promise
+  core = await pending.promise
+  controller.actions = core.actions
+  controller.instance = core
   showIssues()
   return controller
 }
