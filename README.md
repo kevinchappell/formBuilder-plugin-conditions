@@ -14,24 +14,25 @@ patches nothing in core, and never evaluates rule text as JavaScript.
 | `formBuilder` | `^3.23.1` |
 | `jquery` | `>=3.4.1` |
 
+## Demo
+
+The example page is deployed from `main` to
+[kevinchappell.github.io/formBuilder-plugin-conditions](https://kevinchappell.github.io/formBuilder-plugin-conditions/).
+
 ## Install
 
-The package is not published to npm yet (`private: true`), and `dist/` is not committed. Build it in
-the checkout first — that is what both the bundler import and the `<script>` tag load:
-
 ```bash
-cd formBuilder-plugin-conditions
-npm install && npm run build   # writes dist/formbuilder-plugin-conditions{,.umd}.js
+npm install jquery formBuilder formbuilder-plugin-conditions
 ```
 
-Then, in the consuming project:
+The package ships `dist/formbuilder-plugin-conditions.js` (ES module, the `import` entry) and
+`dist/formbuilder-plugin-conditions.umd.js` (the `require` entry and the `<script>` build). For a
+plain `<script>` page, no install is needed: point a tag at the UMD file on a CDN, for example
+`https://cdn.jsdelivr.net/npm/formbuilder-plugin-conditions/dist/formbuilder-plugin-conditions.umd.js`.
 
-```bash
-npm install jquery formBuilder
-npm install /path/to/formBuilder-plugin-conditions
-```
-
-For a plain `<script>` page, no install is needed: point a tag at the built UMD file.
+To use an unpublished checkout instead, run `npm install && npm run build` in it and then
+`npm install /path/to/formBuilder-plugin-conditions` in the consuming project. `dist/` is not
+committed; it is built on `npm pack` and `npm publish`.
 
 ### Script order
 
@@ -301,14 +302,40 @@ so repeatedly creating and destroying builders on one page leaks those.
 
 `examples/basic.html` is a runnable page with a real checkbox rule and a real date rule, a plugin Save
 button that renders the saved schema into an output container, and a live `userData` dump. Run
-`npm run build` first, then open the file in a browser.
+`npm run build` first, then open the file in a browser. The same page is what the demo deploys:
+`npm run build:demo` assembles it into `site/` with the built bundle beside it.
 
 ## Development
 
 ```bash
-npm test     # vitest, driving real formBuilder/formRender from the adjacent checkout
-npm run build
+npm install
+npm test           # vitest under jsdom, driving real formBuilder/formRender
+npm run build      # writes dist/formbuilder-plugin-conditions{,.umd.js}
+npm run build:demo # builds, then assembles the GitHub Pages demo into site/
 ```
 
-The test suite expects the formBuilder repository checked out next to this one
-(`../formBuilder`), and imports its sources directly.
+The test suite imports formBuilder's sources from the `formBuilder` npm package in
+`node_modules` (pinned as a devDependency), so no adjacent core checkout is needed.
+
+### Commits and releases
+
+Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/); a husky
+`commit-msg` hook runs commitlint locally, and the CI workflow checks every commit on a pull
+request. Releases are automated with [semantic-release](https://semantic-release.gitbook.io/):
+each push to `main` analyses the commits since the last tag, and a `fix:` commit publishes a patch,
+a `feat:` commit a minor, and a `BREAKING CHANGE` footer or `!` a major. The version in
+`package.json` stays `0.0.0-development`; the published version comes from the git tag.
+
+GitHub Actions workflows:
+
+| Workflow | Trigger | What it does |
+| --- | --- | --- |
+| `ci.yml` | pull request | `npm test`, `npm run build`, `npm run build:demo`, commitlint on the PR's commits |
+| `pages.yml` | push to `main` | builds the demo and deploys it to GitHub Pages with the workflow's OIDC token (no personal access token) |
+| `release.yml` | push to `main` | runs semantic-release: tags, publishes to npm, and creates the GitHub release |
+
+npm publishing uses [trusted publishing](https://docs.npmjs.com/trusted-publishers/) (OIDC) once
+the trusted publisher is configured for the package on npmjs.com, pointing at
+`release.yml` in this repository. npm only lets you configure that after the package exists, so the
+first publish needs an `NPM_TOKEN` repository secret (a granular automation token). After the first
+release, configure the trusted publisher and delete the token; the workflow needs no change.
