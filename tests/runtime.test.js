@@ -25,7 +25,10 @@ describe('conditional render', () => {
   test('hides required target until checkbox is checked, retains value, and omits hidden userData', () => {
     const container = make()
     const fields = [source, target]
-    const onRender = vi.fn(() => expect(group(container, 'details').hidden).toBe(true))
+    const onRender = vi.fn(() => {
+      expect(group(container, 'details').hidden).toBe(true)
+      expect(data(container).map(field => field.name)).not.toContain('details')
+    })
     render(container, { formData: fields, onRender })
     const details = input(container, 'details')
     expect(onRender).toHaveBeenCalledOnce()

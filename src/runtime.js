@@ -37,6 +37,20 @@ const report = (state, warning) => {
   const callback = state.onWarning ?? state.notify?.warning
   callback?.(warning)
 }
+const installUserDataFilter = state => {
+  const instance = state.instance
+  if (!instance || Object.hasOwn(instance, 'userData')) return
+  const baseGetter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(instance), 'userData')?.get
+  if (!baseGetter) return
+  Object.defineProperty(instance, 'userData', {
+    configurable: true,
+    get() {
+      const raw = baseGetter.call(this)
+      const hiddenNames = new Set(state.items.filter(item => item.wrapper?.hidden).map(item => item.field.name))
+      return raw.filter(field => !hiddenNames.has(field.name))
+    },
+  })
+}
 const restore = state => {
   if (!state) return
   state.container.removeEventListener('input', state.update)
@@ -137,23 +151,15 @@ export function render(container, { formData, resolveFieldElement, onWarning, ..
         return item
       })
       update(state)
+      state.instance = $(container).data('formRenderInstance')
+      installUserDataFilter(state)
       onRender?.()
     },
   }
   try {
     for (const error of errors) report(state, error)
     state.instance = $(container).formRender(options)
-    const baseGetter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(state.instance), 'userData')?.get
-    if (baseGetter) {
-      Object.defineProperty(state.instance, 'userData', {
-        configurable: true,
-        get() {
-          const raw = baseGetter.call(this)
-          const hiddenNames = new Set(state.items.filter(item => item.wrapper?.hidden).map(item => item.field.name))
-          return raw.filter(field => !hiddenNames.has(field.name))
-        },
-      })
-    }
+    installUserDataFilter(state)
     state.update = () => update(state)
     container.addEventListener('input', state.update)
     container.addEventListener('change', state.update)
