@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { evaluate, operatorsFor, sourceKind, validate } from '../src/rules.js'
+import { canBeTarget, evaluate, operatorsFor, sourceKind, validate } from '../src/rules.js'
 
 const field = (conditionId, type, extra = {}) => ({ conditionId, type, ...extra })
 
@@ -19,6 +19,27 @@ describe('sourceKind', () => {
     [field('a', 'header'), null],
   ])('classifies %j as %s', (source, expected) => {
     expect(sourceKind(source)).toBe(expected)
+  })
+})
+
+describe('canBeTarget', () => {
+  it.each([
+    [field('a', 'text'), true],
+    [field('a', 'checkbox'), true],
+    [field('a', 'select'), true],
+    [field('a', 'button', { name: 'go' }), true],
+    [field('a', 'file', { name: 'upload' }), true],
+    [field('a', 'header'), false],
+    [field('a', 'paragraph'), false],
+    [field('a', 'hidden', { name: 'token' }), false],
+    [undefined, false],
+    [{ conditionId: 'a' }, false],
+  ])('decides %j as %s', (source, expected) => {
+    expect(canBeTarget(source)).toBe(expected)
+  })
+
+  it('accepts a display-only field that carries a name, which formRender wraps', () => {
+    expect(canBeTarget(field('a', 'header', { name: 'section-1' }))).toBe(true)
   })
 })
 

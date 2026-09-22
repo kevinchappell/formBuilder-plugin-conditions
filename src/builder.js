@@ -1,19 +1,42 @@
 import $ from 'jquery'
-import { openConditionEditor } from './editor.js'
+import { openConditionEditor, preserveRawRule, renderConditionIssues } from './editor.js'
+import { validate } from './rules.js'
 
 const activeRule = rule => rule && typeof rule === 'object' && !Array.isArray(rule) && Object.values(rule).some(value => value !== '' && value != null)
+// A `showWhen` that is neither absent nor a plain object cannot be edited, but it is
+// kept in the exported data and reported instead of being dropped.
+const rawRule = rule => rule != null && rule !== '' && (typeof rule !== 'object' || Array.isArray(rule))
 const fieldNodes = container => [...container.querySelectorAll('li.form-field')]
 const attr = (field, name) => field.querySelector(`.fld-${name}`)?.value
 
+const randomId = () => {
+  const source = globalThis.crypto
+  if (typeof source?.randomUUID === 'function') return `c_${source.randomUUID()}`
+  const bytes = new Uint8Array(16)
+  source.getRandomValues(bytes)
+  return `c_${[...bytes].map(byte => byte.toString(16).padStart(2, '0')).join('')}`
+}
+
 export async function createBuilder(container, options = {}) {
   const seen = new Set()
-  let serial = 0
   let controller
   const uniqueId = () => {
     let id
-    do { id = `c_${Date.now().toString(36)}_${++serial}` } while (seen.has(id))
+    do { id = randomId() } while (seen.has(id))
     seen.add(id)
     return id
+  }
+  const showIssues = () => {
+    const fields = controller?.actions.getData('js')
+    if (!fields) return
+    const byField = new Map()
+    for (const issue of validate(fields)) {
+      if (!byField.has(issue.fieldId)) byField.set(issue.fieldId, [])
+      byField.get(issue.fieldId).push(issue)
+    }
+    for (const node of fieldNodes(container)) {
+      renderConditionIssues(node, byField.get(attr(node, 'conditionId')) ?? [])
+    }
   }
   const callerEvents = options.typeUserEvents || {}
   const typeUserEvents = {}
@@ -51,11 +74,13 @@ export async function createBuilder(container, options = {}) {
       const node = document.getElementById(id)
       const idWrapper = node?.querySelector('.conditionId-wrap')
       if (idWrapper) idWrapper.hidden = true
-      if (!activeRule(field.showWhen)) node?.querySelector('.showWhen-wrap')?.remove()
+      if (rawRule(field.showWhen)) preserveRawRule(node, field.showWhen)
+      else if (!activeRule(field.showWhen)) node?.querySelector('.showWhen-wrap')?.remove()
       onAddFieldAfter?.(id, field)
     },
     onOpenFieldEdit(panel) {
-      openConditionEditor(panel, () => controller.actions.getData('js'))
+      openConditionEditor(panel, () => controller?.actions.getData('js') ?? [])
+      showIssues()
       onOpenFieldEdit?.(panel)
     },
     onRemoveField(id, data, field) {
@@ -77,10 +102,6 @@ export async function createBuilder(container, options = {}) {
     },
   })
   controller = await instance.promise
-  const setData = controller.actions.setData
-  controller.actions.setData = data => {
-    seen.clear()
-    return setData(data)
-  }
+  showIssues()
   return controller
 }
