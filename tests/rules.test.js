@@ -53,6 +53,8 @@ describe('evaluate', () => {
     const number = field('a', 'number')
     expect(evaluate({ operator: 'greaterThan', value: '10' }, number, '10.5')).toBe(true)
     expect(evaluate({ operator: 'lessThan', value: '10' }, number, '')).toBe(false)
+    expect(evaluate({ operator: 'lessThan', value: '10' }, number, '   ')).toBe(false)
+    expect(evaluate({ operator: 'lessThan', value: '   ' }, number, '-1')).toBe(false)
     expect(evaluate({ operator: 'lessThan', value: '10' }, number, 'not a number')).toBe(false)
   })
 
@@ -62,6 +64,7 @@ describe('evaluate', () => {
     expect(evaluate({ operator: 'lessThan', value: '2026-10-01' }, date, '')).toBe(false)
     expect(evaluate({ operator: 'lessThan', value: '2026-10-01' }, date, '09/22/2026')).toBe(false)
     expect(evaluate({ operator: 'lessThan', value: '2026-02-30' }, date, '2026-02-20')).toBe(false)
+    expect(evaluate({ operator: 'lessThan', value: '0099-12-31' }, date, '0001-01-01')).toBe(true)
   })
 
   it('returns false for an operator that the source type does not support', () => {
