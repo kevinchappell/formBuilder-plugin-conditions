@@ -22,14 +22,14 @@
     "jquery"
   ],
   "type": "module",
-  "main": "dist/formbuilder-plugin-conditions.umd.js",
+  "main": "dist/formbuilder-plugin-conditions.umd.cjs",
   "module": "dist/formbuilder-plugin-conditions.js",
-  "unpkg": "dist/formbuilder-plugin-conditions.umd.js",
-  "jsdelivr": "dist/formbuilder-plugin-conditions.umd.js",
+  "unpkg": "dist/formbuilder-plugin-conditions.umd.cjs",
+  "jsdelivr": "dist/formbuilder-plugin-conditions.umd.cjs",
   "exports": {
     ".": {
       "import": "./dist/formbuilder-plugin-conditions.js",
-      "require": "./dist/formbuilder-plugin-conditions.umd.js",
+      "require": "./dist/formbuilder-plugin-conditions.umd.cjs",
       "default": "./dist/formbuilder-plugin-conditions.js"
     },
     "./package.json": "./package.json"

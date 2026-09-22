@@ -99,8 +99,10 @@ export async function createBuilder(container, options = {}) {
   }
   // Core exposes no teardown, so the plugin drops the builder markup it created
   // and releases its references to the core instance. Repeat calls are a no-op.
+  let removeSubtypeListeners = () => {}
   const destroy = () => {
     if (!core) return
+    removeSubtypeListeners()
     core = null
     controller.actions = null
     controller.instance = null
@@ -190,10 +192,10 @@ export async function createBuilder(container, options = {}) {
   // remembers which field it belonged to.
   const isSubtype = target => target instanceof Element && target.classList.contains('fld-subtype')
   let subtypeChange = null
-  container.addEventListener('change', evt => {
+  const captureSubtypeChange = evt => {
     subtypeChange = isSubtype(evt.target) ? { evt, node: evt.target.closest('li.form-field') } : null
-  }, true)
-  container.addEventListener('change', evt => {
+  }
+  const repairSubtypeChange = evt => {
     const node = subtypeChange?.evt === evt ? subtypeChange.node : null
     subtypeChange = null
     if (!node || !container.contains(node)) return
@@ -206,8 +208,20 @@ export async function createBuilder(container, options = {}) {
       panel.querySelector('.showWhen-wrap')?.remove()
     }
     showIssues()
-  })
-  core = await pending.promise
+  }
+  removeSubtypeListeners = () => {
+    container.removeEventListener('change', captureSubtypeChange, true)
+    container.removeEventListener('change', repairSubtypeChange)
+    subtypeChange = null
+  }
+  container.addEventListener('change', captureSubtypeChange, true)
+  container.addEventListener('change', repairSubtypeChange)
+  try {
+    core = await pending.promise
+  } catch (error) {
+    removeSubtypeListeners()
+    throw error
+  }
   controller.actions = core.actions
   controller.instance = core
   showIssues()

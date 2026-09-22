@@ -28,9 +28,9 @@ npm install jquery formBuilder formbuilder-plugin-conditions
 ```
 
 The package ships `dist/formbuilder-plugin-conditions.js` (ES module, the `import` entry) and
-`dist/formbuilder-plugin-conditions.umd.js` (the `require` entry and the `<script>` build). For a
+`dist/formbuilder-plugin-conditions.umd.cjs` (the `require` entry and the `<script>` build). For a
 plain `<script>` page, no install is needed: point a tag at the UMD file on a CDN, for example
-`https://cdn.jsdelivr.net/npm/formbuilder-plugin-conditions/dist/formbuilder-plugin-conditions.umd.js`.
+`https://cdn.jsdelivr.net/npm/formbuilder-plugin-conditions/dist/formbuilder-plugin-conditions.umd.cjs`.
 
 To use an unpublished checkout instead, run `npm install && npm run build` in it and then
 `npm install /path/to/formBuilder-plugin-conditions` in the consuming project. `dist/` is not
@@ -49,7 +49,7 @@ install resolves for you).
 <script src="https://cdn.jsdelivr.net/npm/jquery-ui-sortable@1.0.0/jquery-ui.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/formBuilder@3.23.1/dist/form-builder.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/formBuilder@3.23.1/dist/form-render.min.js"></script>
-<script src="dist/formbuilder-plugin-conditions.umd.js"></script>
+<script src="dist/formbuilder-plugin-conditions.umd.cjs"></script>
 <script>
   const { createBuilder, render, destroy, validate } = window.FormBuilderConditions
 </script>
@@ -312,7 +312,7 @@ button that renders the saved schema into an output container, and a live `userD
 ```bash
 npm install
 npm test           # vitest under jsdom, driving real formBuilder/formRender
-npm run build      # writes dist/formbuilder-plugin-conditions{,.umd.js}
+npm run build      # writes dist/formbuilder-plugin-conditions{,.umd.cjs}
 npm run build:demo # builds, then assembles the GitHub Pages demo into site/
 ```
 

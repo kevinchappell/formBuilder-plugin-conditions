@@ -158,7 +158,10 @@ export function preserveRawRule(node, rule) {
 export function openConditionEditor(panel, getFields) {
   const field = panel.closest('li.form-field')
   if (!field) return
-  const target = { type: field.getAttribute('type'), name: field.querySelector('.fld-name')?.value }
+  const conditionId = field.querySelector('.fld-conditionId')?.value
+  const fields = getFields()
+  const target = fields.find(item => item.conditionId === conditionId)
+    || { type: field.getAttribute('type'), name: field.querySelector('.fld-name')?.value }
   if (!canBeTarget(target)) return
 
   const previousEditor = panel.querySelector('.condition-editor')
