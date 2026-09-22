@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { defineConfig } from 'vitest/config'
 import { resolve } from 'node:path'
 
-const languageFile = resolve(import.meta.dirname, '../formBuilder/node_modules/formbuilder-languages/en-US.lang')
+const languageFile = resolve(import.meta.dirname, 'node_modules/formbuilder-languages/en-US.lang')
 const FB_EN_US = Object.fromEntries(
   readFileSync(languageFile, 'utf8')
     .split(/\r?\n/)
