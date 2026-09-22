@@ -16,6 +16,18 @@ const withoutEmptyRule = field => {
 }
 const fieldNodes = container => [...container.querySelectorAll('li.form-field')]
 const attr = (field, name) => field.querySelector(`.fld-${name}`)?.value
+// The condition ID is plugin-managed: it is kept out of sight and out of reach in
+// the edit panel, while still being exported by core like any other attribute.
+const hideConditionId = node => {
+  const wrapper = node?.querySelector('.conditionId-wrap')
+  if (wrapper) wrapper.hidden = true
+  const control = node?.querySelector('.fld-conditionId')
+  if (control) control.readOnly = true
+}
+// True while the regenerated `showWhen` inputs still carry an authored rule, which
+// must not be discarded with the raw markup core rebuilt.
+const hasShowWhenValue = node => [...node.querySelectorAll('.showWhen-wrap [class*="fld-showWhen"]')]
+  .some(control => control.value !== '')
 
 const randomId = () => {
   const source = globalThis.crypto
@@ -138,8 +150,7 @@ export async function createBuilder(container, options = {}) {
     },
     onAddFieldAfter(id, field) {
       const node = document.getElementById(id)
-      const idWrapper = node?.querySelector('.conditionId-wrap')
-      if (idWrapper) idWrapper.hidden = true
+      hideConditionId(node)
       if (rawRule(field.showWhen)) preserveRawRule(node, field.showWhen)
       else if (!activeRule(field.showWhen)) node?.querySelector('.showWhen-wrap')?.remove()
       onAddFieldAfter?.(id, field)
@@ -166,6 +177,30 @@ export async function createBuilder(container, options = {}) {
       }
       onRemoveField?.(id, data, field)
     },
+  })
+  // Core regenerates `.form-elements-inner` on a subtype change, which drops the
+  // typed editor and brings back the raw metadata inputs. Its handler sits on the
+  // select itself, so the plugin repairs the panel from a delegated listener that
+  // runs afterwards. The select is detached by then, hence the capture pass that
+  // remembers which field it belonged to.
+  const isSubtype = target => target instanceof Element && target.classList.contains('fld-subtype')
+  let subtypeChange = null
+  container.addEventListener('change', evt => {
+    subtypeChange = isSubtype(evt.target) ? { evt, node: evt.target.closest('li.form-field') } : null
+  }, true)
+  container.addEventListener('change', evt => {
+    const node = subtypeChange?.evt === evt ? subtypeChange.node : null
+    subtypeChange = null
+    if (!node || !container.contains(node)) return
+    hideConditionId(node)
+    const panel = node.querySelector('.frm-holder')
+    if (!panel) return
+    // A field that cannot be a target keeps no editor, so its rebuilt `showWhen`
+    // inputs are dropped unless they still hold an imported rule.
+    if (!openConditionEditor(panel, currentFields) && !hasShowWhenValue(node)) {
+      panel.querySelector('.showWhen-wrap')?.remove()
+    }
+    showIssues()
   })
   core = await pending.promise
   controller.actions = core.actions

@@ -180,6 +180,48 @@ describe('condition builder', () => {
     expect(open(builder, field(container, 'city')).querySelector('.condition-enabled')).toBeTruthy()
   })
 
+  test('keeps the typed editor and hidden ID across a subtype change', async () => {
+    const { builder, container } = await mount({ formData: [
+      { type: 'text', name: 'country', label: 'Country', conditionId: 'c_country' },
+      { type: 'text', subtype: 'text', name: 'city', label: 'City', conditionId: 'c_city', showWhen: { sourceId: 'c_country', operator: 'equals', value: 'PT' } },
+    ] })
+    const node = field(container, 'city')
+    const panel = open(builder, node)
+    const subtype = panel.querySelector('.fld-subtype')
+    expect(subtype).toBeTruthy()
+    subtype.value = 'password'
+    subtype.dispatchEvent(new Event('change', { bubbles: true }))
+
+    expect(panel.querySelector('.condition-editor')).toBeTruthy()
+    expect(panel.querySelector('.condition-enabled').checked).toBe(true)
+    expect(panel.querySelector('.fld-showWhen-sourceId').tagName).toBe('SELECT')
+    expect(panel.querySelector('.fld-showWhen-sourceId').value).toBe('c_country')
+    expect(panel.querySelector('.fld-showWhen-value').value).toBe('PT')
+    expect(node.querySelector('.conditionId-wrap').hidden).toBe(true)
+    expect(node.querySelector('.fld-conditionId').readOnly).toBe(true)
+    const data = builder.actions.getData('js')
+    expect(data[1].subtype).toBe('password')
+    expect(data[1].showWhen).toEqual({ sourceId: 'c_country', operator: 'equals', value: 'PT' })
+  })
+
+  test('a subtype change on a field that cannot be a target leaves no raw rule inputs', async () => {
+    const { builder, container } = await mount({ formData: [
+      { type: 'header', subtype: 'h2', label: 'Section' },
+    ] })
+    const node = nodeOfType(container, 'header')
+    const panel = open(builder, node)
+    const subtype = panel.querySelector('.fld-subtype')
+    subtype.value = 'h3'
+    subtype.dispatchEvent(new Event('change', { bubbles: true }))
+
+    expect(panel.querySelector('.condition-editor')).toBeNull()
+    expect(panel.querySelector('.showWhen-wrap')).toBeNull()
+    expect(node.querySelector('.conditionId-wrap').hidden).toBe(true)
+    const data = builder.actions.getData('js')
+    expect(data[0].subtype).toBe('h3')
+    expect(data[0].showWhen).toBeUndefined()
+  })
+
   test('reports a dangling source inline and keeps the imported rule in exported data', async () => {
     const rule = { sourceId: 'c_gone', operator: 'equals', value: 'PT' }
     const { builder, container } = await mount({ formData: [
