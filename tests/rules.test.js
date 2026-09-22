@@ -56,6 +56,8 @@ describe('evaluate', () => {
     expect(evaluate({ operator: 'lessThan', value: '10' }, number, '   ')).toBe(false)
     expect(evaluate({ operator: 'lessThan', value: '   ' }, number, '-1')).toBe(false)
     expect(evaluate({ operator: 'lessThan', value: '10' }, number, 'not a number')).toBe(false)
+    expect(evaluate({ operator: 'greaterThan', value: '-1' }, number, [])).toBe(false)
+    expect(evaluate({ operator: 'greaterThan', value: [] }, number, 1)).toBe(false)
   })
 
   it('orders valid HTML date values and rejects blanks and invalid dates', () => {
@@ -114,6 +116,17 @@ describe('validate', () => {
       field('source', 'number'),
       field('target', 'text', { showWhen: { sourceId: 'source', operator: 'contains', value: '1' } }),
     ])).toContainEqual({ fieldId: 'target', code: 'operator-type-mismatch' })
+  })
+
+  it.each([
+    ['number', 'abc'],
+    ['number', []],
+    ['date', '2026-02-30'],
+  ])('rejects an invalid %s comparison operand: %j', (type, value) => {
+    expect(validate([
+      field('source', type),
+      field('target', 'text', { showWhen: { sourceId: 'source', operator: 'lessThan', value } }),
+    ])).toContainEqual({ fieldId: 'target', code: 'malformed-rule' })
   })
 
   it('rejects stale choice values and compares option values rather than labels', () => {

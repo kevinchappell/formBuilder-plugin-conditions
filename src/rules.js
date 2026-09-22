@@ -61,6 +61,12 @@ function validIsoDate(value) {
   return day >= 1 && day <= daysInMonth[month - 1]
 }
 
+function validNumberOperand(value) {
+  if (typeof value === 'number') return Number.isFinite(value)
+  if (typeof value !== 'string' || value.trim() === '') return false
+  return Number.isFinite(Number(value))
+}
+
 export function evaluate(rule, sourceField, answer) {
   if (!rule || !operatorsFor(sourceField).includes(rule.operator)) return false
 
@@ -75,12 +81,9 @@ export function evaluate(rule, sourceField, answer) {
     case 'text':
       return rule.operator === 'equals' ? answer === rule.value : answer !== rule.value
     case 'number': {
-      if (isBlank(answer) || isBlank(rule.value)) return false
-      if (typeof answer === 'string' && answer.trim() === '') return false
-      if (typeof rule.value === 'string' && rule.value.trim() === '') return false
+      if (!validNumberOperand(answer) || !validNumberOperand(rule.value)) return false
       const left = Number(answer)
       const right = Number(rule.value)
-      if (!Number.isFinite(left) || !Number.isFinite(right)) return false
       return rule.operator === 'greaterThan' ? left > right : left < right
     }
     case 'date':
@@ -159,6 +162,14 @@ export function validate(fields) {
     }
 
     const kind = sourceKind(source)
+    if (kind === 'number' && !validNumberOperand(rule.value)) {
+      addError(id, 'malformed-rule')
+      continue
+    }
+    if (kind === 'date' && !validIsoDate(rule.value)) {
+      addError(id, 'malformed-rule')
+      continue
+    }
     if ((kind === 'choice' || kind === 'multi') && !hasSavedValue(source, rule.value)) {
       addError(id, 'stale-choice-value')
     }
