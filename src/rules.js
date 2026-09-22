@@ -79,6 +79,7 @@ export function evaluate(rule, sourceField, answer) {
     }
     case 'choice':
     case 'text':
+      if (typeof rule.value !== 'string') return false
       return rule.operator === 'equals' ? answer === rule.value : answer !== rule.value
     case 'number': {
       if (!validNumberOperand(answer) || !validNumberOperand(rule.value)) return false
@@ -167,6 +168,10 @@ export function validate(fields) {
       continue
     }
     if (kind === 'date' && !validIsoDate(rule.value)) {
+      addError(id, 'malformed-rule')
+      continue
+    }
+    if ((kind === 'text' || kind === 'choice') && typeof rule.value !== 'string') {
       addError(id, 'malformed-rule')
       continue
     }

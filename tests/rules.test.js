@@ -47,6 +47,7 @@ describe('evaluate', () => {
     expect(evaluate({ operator: 'equals', value: 'saved-value' }, choice, 'saved-value')).toBe(true)
     expect(evaluate({ operator: 'equals', value: 'Visible label' }, choice, 'saved-value')).toBe(false)
     expect(evaluate({ operator: 'notEquals', value: 'other' }, field('a', 'text'), 'answer')).toBe(true)
+    expect(evaluate({ operator: 'notEquals', value: { x: 1 } }, field('a', 'text'), 'answer')).toBe(false)
   })
 
   it('uses numeric ordering and rejects blank or non-numeric answers', () => {
@@ -126,6 +127,16 @@ describe('validate', () => {
     expect(validate([
       field('source', type),
       field('target', 'text', { showWhen: { sourceId: 'source', operator: 'lessThan', value } }),
+    ])).toContainEqual({ fieldId: 'target', code: 'malformed-rule' })
+  })
+
+  it.each([
+    ['text', { x: 1 }],
+    ['select', { x: 1 }],
+  ])('rejects a non-string %s comparison operand', (type, value) => {
+    expect(validate([
+      field('source', type, type === 'select' ? { values: [] } : {}),
+      field('target', 'text', { showWhen: { sourceId: 'source', operator: 'notEquals', value } }),
     ])).toContainEqual({ fieldId: 'target', code: 'malformed-rule' })
   })
 
