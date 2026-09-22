@@ -27,7 +27,7 @@ describe('conditional render', () => {
     const fields = [source, target]
     const onRender = vi.fn(() => {
       expect(group(container, 'details').hidden).toBe(true)
-      expect(data(container).map(field => field.name)).not.toContain('details')
+      expect(data(container).find(field => field.name === 'details').userData).toEqual([])
     })
     render(container, { formData: fields, onRender })
     const details = input(container, 'details')
@@ -35,7 +35,7 @@ describe('conditional render', () => {
     expect(group(container, 'details').hidden).toBe(true)
     expect(details.disabled).toBe(true)
     expect(details.checkValidity()).toBe(true)
-    expect(data(container).map(field => field.name)).not.toContain('details')
+    expect(data(container).find(field => field.name === 'details').userData).toEqual([])
     expect(fields[1].showWhen).toEqual(target.showWhen)
     expect(container.innerHTML).not.toContain('showWhen')
     expect(container.innerHTML).not.toContain('conditionId')
@@ -49,7 +49,7 @@ describe('conditional render', () => {
     input(container, 'agree').checked = false
     change(input(container, 'agree'))
     expect(details.value).toBe('saved answer')
-    expect(data(container).map(field => field.name)).not.toContain('details')
+    expect(data(container).find(field => field.name === 'details').userData).toEqual([])
     input(container, 'agree').checked = true
     change(input(container, 'agree'))
     expect(details.value).toBe('saved answer')
@@ -96,6 +96,69 @@ describe('conditional render', () => {
     expect(heading.hidden).toBe(true)
     destroy(container)
     expect(heading.hidden).toBe(false)
+  })
+
+  test('disables and re-enables a hidden button target', () => {
+    const container = make()
+    const onWarning = vi.fn()
+    render(container, { formData: [
+      source,
+      { type: 'button', subtype: 'button', name: 'go', label: 'Go', conditionId: 'go', showWhen: { sourceId: 'agree', operator: 'checked' } },
+    ], onWarning })
+    const button = container.querySelector('button[name="go"]')
+    const wrapper = button.closest('.form-group')
+    expect(wrapper.hidden).toBe(true)
+    expect(button.disabled).toBe(true)
+    expect(onWarning).not.toHaveBeenCalled()
+    input(container, 'agree').checked = true
+    change(input(container, 'agree'))
+    expect(wrapper.hidden).toBe(false)
+    expect(button.disabled).toBe(false)
+    input(container, 'agree').checked = false
+    change(input(container, 'agree'))
+    expect(wrapper.hidden).toBe(true)
+    expect(button.disabled).toBe(true)
+    destroy(container)
+    expect(wrapper.hidden).toBe(false)
+    expect(button.disabled).toBe(false)
+  })
+
+  test('disables a wrapper-less hidden input target and keeps its answer out of userData', () => {
+    const container = make()
+    const onWarning = vi.fn()
+    render(container, { formData: [
+      source,
+      { type: 'hidden', name: 'token', value: 'abc', conditionId: 'token', showWhen: { sourceId: 'agree', operator: 'checked' } },
+    ], onWarning })
+    const token = input(container, 'token')
+    expect(token.closest('.form-group')).toBe(null)
+    expect(token.disabled).toBe(true)
+    expect(onWarning).not.toHaveBeenCalled()
+    expect(data(container).find(field => field.name === 'token').userData).toEqual([])
+    input(container, 'agree').checked = true
+    change(input(container, 'agree'))
+    expect(token.disabled).toBe(false)
+    expect(data(container).find(field => field.name === 'token').userData).toEqual(['abc'])
+    input(container, 'agree').checked = false
+    change(input(container, 'agree'))
+    expect(token.disabled).toBe(true)
+    expect(token.value).toBe('abc')
+    expect(data(container).find(field => field.name === 'token').userData).toEqual([])
+    destroy(container)
+    expect(token.disabled).toBe(false)
+  })
+
+  test('reports a hidden target through core userData without patching the instance', () => {
+    const container = make()
+    const instance = render(container, { formData: [source, target] })
+    expect(Object.hasOwn(instance, 'userData')).toBe(false)
+    const hidden = data(container).find(field => field.name === 'details')
+    expect(hidden).toBeDefined()
+    expect(hidden.userData).toEqual([])
+    input(container, 'agree').checked = true
+    change(input(container, 'agree'))
+    input(container, 'details').value = 'answer'
+    expect(data(container).find(field => field.name === 'details').userData).toEqual(['answer'])
   })
 
   test('preserves authored disabled controls and handles two containers independently', () => {

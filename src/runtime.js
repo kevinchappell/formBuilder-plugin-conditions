@@ -17,7 +17,9 @@ const clone = value => {
   }
   return value
 }
-const controlsFor = (container, name) => [...container.querySelectorAll('input,select,textarea')]
+// A hidden target's descendant controls are disabled, buttons included.
+const CONTROL_SELECTOR = 'input,select,textarea,button'
+const controlsFor = (container, name) => [...container.querySelectorAll(CONTROL_SELECTOR)]
   .filter(control => control.name === name || control.name === `${name}[]`)
 const standardWrapperFor = (container, field) => {
   // formRender applies `field-${id}` to standard wrappers. Display-only
@@ -27,7 +29,8 @@ const standardWrapperFor = (container, field) => {
   return [...container.querySelectorAll('.rendered-form .form-group')]
     .find(element => identities.some(identity => element.classList.contains(`field-${identity}`))) ?? null
 }
-const answerFor = (field, controls) => {
+const answerFor = (field, allControls) => {
+  const controls = allControls.filter(control => control.tagName !== 'BUTTON')
   const kind = sourceKind(field)
   if (kind === 'checkbox') return controls.some(control => control.checked)
   if (kind === 'multi') {
@@ -45,20 +48,6 @@ const report = (state, warning) => {
   const callback = state.onWarning ?? state.notify?.warning
   callback?.(warning)
 }
-const installUserDataFilter = state => {
-  const instance = state.instance
-  if (!instance || Object.hasOwn(instance, 'userData')) return
-  const baseGetter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(instance), 'userData')?.get
-  if (!baseGetter) return
-  Object.defineProperty(instance, 'userData', {
-    configurable: true,
-    get() {
-      const raw = baseGetter.call(this)
-      const hiddenNames = new Set(state.items.filter(item => item.wrapper?.hidden).map(item => item.field.name))
-      return raw.filter(field => !hiddenNames.has(field.name))
-    },
-  })
-}
 const restore = state => {
   if (!state) return
   state.container.removeEventListener('input', state.update)
@@ -67,7 +56,6 @@ const restore = state => {
     if (item.wrapper) item.wrapper.hidden = item.originalHidden
     for (const [control, disabled] of item.originalDisabled) control.disabled = disabled
   }
-  if (state.instance) delete state.instance.userData
 }
 
 function update(state) {
@@ -87,7 +75,7 @@ function update(state) {
     if (item.rule) {
       const source = byId.get(item.field.showWhen?.sourceId)
       // Always short-circuit a hidden source, including for `unchecked` rules.
-      result = result && !item.invalid && !!source && !!source.wrapper && !source.invalid && visible(source) &&
+      result = result && !item.invalid && !!source && source.resolved && !source.invalid && visible(source) &&
         evaluate(item.field.showWhen, source.field, answerFor(source.field, source.controls))
     }
     visiting.delete(item)
@@ -96,15 +84,19 @@ function update(state) {
   }
   for (const item of state.items) {
     const shown = visible(item)
-    if (!item.wrapper) continue
-    item.wrapper.hidden = shown ? item.originalHidden : true
+    // Wrapper-less targets (e.g. `type: 'hidden'`) have no element to hide, so
+    // disabling their controls is what keeps them out of userData.
+    if (item.wrapper) item.wrapper.hidden = shown ? item.originalHidden : true
     for (const [control, authoredDisabled] of item.originalDisabled) {
       control.disabled = shown ? authoredDisabled : true
     }
   }
 }
 
-/** Render a form with conditional visibility. The returned formRender instance supports userData. */
+/**
+ * Render a form with conditional visibility. Returns the formRender instance; a hidden target's
+ * controls are disabled, so core `userData` reports that field with an empty answer array.
+ */
 export function render(container, { formData, resolveFieldElement, onWarning, ...formRenderOptions } = {}) {
   if (!(container instanceof Element)) throw new TypeError('render requires a DOM container')
   if (formRenderOptions.dataType === 'xml') throw new Error('Conditional render does not support XML formData')
@@ -142,32 +134,32 @@ export function render(container, { formData, resolveFieldElement, onWarning, ..
     formData: renderedFields,
     onRender: () => {
       state.items = inputFields.map(field => {
-        const controls = controlsFor(container, field.name)
-        const resolved = resolveFieldElement?.(field, container)
-        const wrapper = resolved ?? controls[0]?.closest('.form-group') ?? standardWrapperFor(container, field)
+        const named = controlsFor(container, field.name)
+        const custom = resolveFieldElement?.(field, container)
+        const wrapper = custom ?? named[0]?.closest('.form-group') ?? standardWrapperFor(container, field)
+        const controls = wrapper ? [...wrapper.querySelectorAll(CONTROL_SELECTOR)] : named
         const item = {
           field,
           rule: hasRule(field),
           invalid: badIds.has(fieldKey(field)) || duplicateIds.has(field.showWhen?.sourceId),
           wrapper,
-          controls: wrapper ? [...wrapper.querySelectorAll('input,select,textarea')] : controls,
+          controls,
+          // A wrapper-less target (e.g. `type: 'hidden'`) is still governed through its controls.
+          resolved: Boolean(wrapper) || controls.length > 0,
           originalHidden: wrapper?.hidden ?? false,
           originalDisabled: new Map(),
         }
         for (const control of item.controls) item.originalDisabled.set(control, control.disabled)
-        if (item.rule && !wrapper) report(state, { fieldId: fieldKey(field), code: 'missing-rendered-field' })
+        if (item.rule && !item.resolved) report(state, { fieldId: fieldKey(field), code: 'missing-rendered-field' })
         return item
       })
       update(state)
-      state.instance = $(container).data('formRenderInstance')
-      installUserDataFilter(state)
       onRender?.()
     },
   }
   try {
     for (const error of errors) report(state, error)
     state.instance = $(container).formRender(options)
-    installUserDataFilter(state)
     state.update = () => update(state)
     container.addEventListener('input', state.update)
     container.addEventListener('change', state.update)
