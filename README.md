@@ -7,6 +7,8 @@ and the rendered form applies it. Implements [formBuilder issue #478](https://gi
 The plugin is a separate package. It uses only public formBuilder options and hooks, adds no field type,
 patches nothing in core, and never evaluates rule text as JavaScript.
 
+![field conditional visibility example](image.png)
+
 ## Requirements
 
 | Peer | Version |
