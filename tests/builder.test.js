@@ -22,18 +22,22 @@ function open(builder, node) {
 afterEach(() => document.body.replaceChildren())
 
 describe('condition builder', () => {
-  test('assigns unique stable IDs and rehydrates them on reload', async () => {
+  test('preserves duplicate imported IDs while assigning unique IDs to missing fields', async () => {
     const { builder, container } = await mount({ formData: [
       { type: 'text', name: 'first', conditionId: 'c_saved' },
       { type: 'text', name: 'second', conditionId: 'c_saved' },
+      { type: 'text', name: 'third' },
+      { type: 'text', name: 'fourth' },
     ] })
     const ids = builder.actions.getData('js').map(item => item.conditionId)
-    expect(ids[0]).toBe('c_saved')
-    expect(ids[1]).toMatch(/^c_/)
-    expect(new Set(ids).size).toBe(2)
+    expect(ids.slice(0, 2)).toEqual(['c_saved', 'c_saved'])
+    expect(ids[2]).toMatch(/^c_/)
+    expect(ids[3]).toMatch(/^c_/)
+    expect(new Set(ids.slice(2)).size).toBe(2)
+    expect(ids.slice(2)).not.toContain('c_saved')
     builder.actions.setData(builder.actions.getData('js'))
     expect(builder.actions.getData('js').map(item => item.conditionId)).toEqual(ids)
-    expect(container.querySelectorAll('li.form-field')).toHaveLength(2)
+    expect(container.querySelectorAll('li.form-field')).toHaveLength(4)
   })
 
   test('source rename preserves a dependent rule by stable ID', async () => {

@@ -43,7 +43,7 @@ export async function createBuilder(container, options = {}) {
     typeUserAttrs: mergedAttrs,
     typeUserEvents,
     onAddField(id, field) {
-      if (typeof field.conditionId !== 'string' || !field.conditionId || seen.has(field.conditionId)) field.conditionId = uniqueId()
+      if (typeof field.conditionId !== 'string' || !field.conditionId) field.conditionId = uniqueId()
       else seen.add(field.conditionId)
       onAddField?.(id, field)
     },
