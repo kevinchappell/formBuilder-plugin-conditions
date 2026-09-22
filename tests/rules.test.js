@@ -37,7 +37,7 @@ describe('canBeTarget', () => {
     [field('a', 'file', { name: 'upload' }), true],
     [field('a', 'header'), false],
     [field('a', 'paragraph'), false],
-    [field('a', 'hidden', { name: 'token' }), false],
+    [field('a', 'hidden', { name: 'token' }), true],
     [undefined, false],
     [{ conditionId: 'a' }, false],
   ])('decides %j as %s', (source, expected) => {
@@ -46,6 +46,12 @@ describe('canBeTarget', () => {
 
   it('accepts a display-only field that carries a name, which formRender wraps', () => {
     expect(canBeTarget(field('a', 'header', { name: 'section-1' }))).toBe(true)
+  })
+
+  it('rejects a display-only field that carries only an id, which formRender does not wrap', () => {
+    // formRender overwrites the field id with the name (`layout.build`), so a
+    // nameless header renders bare: a generated control id and no wrapper at all.
+    expect(canBeTarget(field('a', 'header', { id: 'heading-id' }))).toBe(false)
   })
 })
 
@@ -192,6 +198,20 @@ describe('validate', () => {
       field('source', 'text'),
       field('target', 'text', { showWhen }),
     ])).toContainEqual({ fieldId: 'target', code: 'malformed-rule' })
+  })
+
+  it('reports a rule on a field that cannot be a target', () => {
+    expect(validate([
+      field('source', 'checkbox'),
+      field('heading', 'header', { showWhen: { sourceId: 'source', operator: 'checked', value: '' } }),
+    ])).toContainEqual({ fieldId: 'heading', code: 'unsupported-target' })
+  })
+
+  it('accepts a rule on a hidden field, which the renderer governs through its control', () => {
+    expect(validate([
+      field('source', 'checkbox'),
+      field('token', 'hidden', { name: 'token', showWhen: { sourceId: 'source', operator: 'checked', value: '' } }),
+    ])).toEqual([])
   })
 
   it('allows checkbox operators without a comparison value', () => {

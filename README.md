@@ -142,6 +142,7 @@ if (!issues.length) save(formData)
 | `cycle` | The rule is part of a loop of rules. |
 | `operator-type-mismatch` | The operator is not one the source's type supports. |
 | `stale-choice-value` | The option the rule compares against no longer exists on the source. |
+| `unsupported-target` | The field carrying the rule cannot be shown or hidden, because the rendered form has no element for it. |
 
 ## Rendering
 
@@ -250,11 +251,16 @@ comparison.
 
 ### Which fields can be targets
 
-Any field type may be a target **except** `hidden`, which formRender renders with no wrapper. Display-only
-types (`header`, `paragraph`) need a `name` or `id`, since that is what their wrapper class is built from —
-in the field editor the switch is offered only when such a field already has a name. Every other field type
-gets the rule editor. (Hand-written rules on a `hidden` field are still honored at runtime by disabling its
-control, but the editor will not author one.)
+Any field type may be a target, including `hidden`: formRender gives a hidden input no wrapper, so the
+plugin governs it through its own control — disabling it keeps its value out of `userData` exactly as it
+does for a visible field.
+
+The exception is a display-only field (`header`, `paragraph`) with no `name`. Their wrapper class is built
+from the name, and they have no control to fall back on, so a nameless one renders bare and a rule on it
+has nothing to toggle. The field editor offers the switch only once such a field has a name, and
+`validate` reports `unsupported-target` for a hand-written rule on one that does not — the builder, the
+exported `validate(formData)` and `render` all report it. `render` never applies such a rule; if a
+`resolveFieldElement` resolver does hand it an element, that element stays hidden.
 
 ## Scope of the first release
 

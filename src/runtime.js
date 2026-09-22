@@ -1,15 +1,10 @@
 import $ from 'jquery'
-import { evaluate, sourceKind, validate } from './rules.js'
+import { evaluate, fieldId, isBlank, ruleState, sourceKind, validate } from './rules.js'
 
 const instances = new WeakMap()
-const isBlank = value => value === '' || value === null || value === undefined
-const hasRule = field => {
-  const rule = field?.showWhen
-  if (rule == null) return false
-  if (typeof rule !== 'object' || Array.isArray(rule)) return true
-  return ![rule.sourceId, rule.operator, rule.value].every(isBlank)
-}
-const fieldKey = field => field.conditionId ?? field.name ?? null
+// A malformed rule counts as a rule: it is reported and fails closed rather than
+// being treated as an unconditional field.
+const hasRule = field => ruleState(field?.showWhen) !== 'inactive'
 const clone = value => {
   if (Array.isArray(value)) return value.map(clone)
   if (value && Object.getPrototypeOf(value) === Object.prototype) {
@@ -141,7 +136,7 @@ export function render(container, { formData, resolveFieldElement, onWarning, ..
         const item = {
           field,
           rule: hasRule(field),
-          invalid: badIds.has(fieldKey(field)) || duplicateIds.has(field.showWhen?.sourceId),
+          invalid: badIds.has(fieldId(field)) || duplicateIds.has(field.showWhen?.sourceId),
           wrapper,
           controls,
           // A wrapper-less target (e.g. `type: 'hidden'`) is still governed through its controls.
@@ -150,7 +145,7 @@ export function render(container, { formData, resolveFieldElement, onWarning, ..
           originalDisabled: new Map(),
         }
         for (const control of item.controls) item.originalDisabled.set(control, control.disabled)
-        if (item.rule && !item.resolved) report(state, { fieldId: fieldKey(field), code: 'missing-rendered-field' })
+        if (item.rule && !item.resolved) report(state, { fieldId: fieldId(field), code: 'missing-rendered-field' })
         return item
       })
       update(state)
