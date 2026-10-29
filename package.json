@@ -32,6 +32,7 @@
       "require": "./dist/formbuilder-plugin-conditions.umd.cjs",
       "default": "./dist/formbuilder-plugin-conditions.js"
     },
+    "./dist/*": "./dist/*",
     "./package.json": "./package.json"
   },
   "files": [
